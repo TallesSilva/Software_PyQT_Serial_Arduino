@@ -86,6 +86,7 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         self.contador_do_timer = 0
         self.t = 0
         ##### Porta Serial #####
+        self.conexao = serial.Serial() # Declarando um atribulo chamado conexao com uma porta serial vazia
         self.port_name = None
         if self.port_name is None:
             self.port_name = ExampleApp.get_arduino_serial_port()
@@ -124,14 +125,17 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         nesta classe.
         """
         self.Iniciar.clicked.connect(self.btn_clicado)
-        self.meu_timer.timeout.connect(self.tarefa_do_timer)
+        self.meu_timer.timeout.connect(self.timer_de_leitura)
         self.Finalizar.clicked.connect(self.btn_desclicado)
 
     def btn_clicado(self):
         print("começou a contar")
         self.resetar_variaveis_de_leitura()
         self.conectar()
-        self.meu_timer.start(10)
+        print("bora sair da jaula")
+        self.conexao.write(b'I')
+        print("birl")
+        self.meu_timer.start(1) #mudar pra um tempo bem menor
 
     def btn_desclicado(self):
         print("Parou de Contar")
@@ -148,6 +152,9 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         # indica o tempo lido pelo sensor cidado a cima
         self.tempo_lido = ""
 
+    def timer_de_leitura(self):
+        self.receber()
+
     def tarefa_do_timer(self):
          self.enviar()
          # Como os dados chegam:
@@ -159,7 +166,7 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         self.contador_do_timer = self.contador_do_timer + 1 # variave que aparece no lcd
         self.t = self.t + 1 # variavel auxiliar para fazer funcionar o if ali embaixo
         if (self.t > 10):
-            self.receber()
+            #self.receber()
             self.lineEdit_A.setText(self.tempo_A_B)
             self.lineEdit_B.setText(self.sensor_B_C)
             self.lineEdit_C.setText(self.sensor_C_D)
@@ -170,7 +177,8 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
     def conectar(self):
         """Caso não esteja conectado, abre uma nova conexão.
         """
-        if not self.conexao.isOpen():
+        print("esse é o certo, tira o parenteses do is_open")
+        if not self.conexao.is_open:
             self.conexao = serial.Serial(self.port_name, self.baudrate, timeout=0.5)
             self.conexao.flushInput()
             self.conexao.flushOutput()
@@ -199,11 +207,19 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
     def receber(self):
         """Chama um loop a cada novo pacote de dados disponível na porta serial.
         """
+        #Se for ativar os prints muda o tempo do timer pra um tempo maior
+        #So assim será possivel visualizar a mensagem...
+        #print("timer de receber")
+        #print(self.conexao.isOpen())
         if self.conexao.isOpen():
+            #print("porta serial esta aberta com %d caracteres" % (self.conexao.inWaiting()) )
             if self.conexao.inWaiting() >= 3: # No minimo 3
                 for n in range(self.conexao.inWaiting()):
-                     #sempre que tiver no minimo 1 byte pra ler é chamado o loop de leitura
+                    # sempre que tiver no minimo 1 byte pra ler é chamado o loop de leitura
                     self.loop_de_leitura()
+                    #valor_lido = self.conexao.read()
+                    #valor_lido = str(chr(ord(valor_lido))) #converte o valor lido
+                    #print(valor_lido, end='') #para teste
 
     def loop_de_leitura(self):
         """Este método é chamado sempre que existir no mínimo 1 valor para ser lido na porta serial
@@ -222,17 +238,25 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         possibilitar a leitura de um novo pacote.
         """
         valor_lido = self.conexao.read()
-         # Os pacotes podem começar com A, B, C, D e E
-        if self.ql_sensor_enviando is not None:
+        valor_lido = str(chr(ord(valor_lido))) #converte o valor lido
+        print(valor_lido, end='') #para teste
+        # Os pacotes podem começar com A, B, C, D e E
+        # descomentar o bloco a baixo quando testar a parte de cima
+        """
+         if self.ql_sensor_enviando is not None:
+            print(valor_lido)
             if valor_lido == 'A' or valor_lido == 'B' or valor_lido == 'C' or valor_lido == 'D' or valor_lido == 'E':
                 self.ql_sensor_enviando = valor_lido
         elif valor_lido != '\n' and valor_lido != '\t': # se não for o \n então vai acumulando numa string
             self.tempo_lido = self.tempo_lido + valor_lido
+            print(self.tempo_lido)
         else: # Se chegou o \n, converte a string pra inteiro e salva num dict
+            print("mensagem completa: " + self.ql_sensor_enviando + " enviou "+ self.tempo_lido)
             self.tempo_sensor[self.ql_sensor_enviando].append(int(self.tempo_lido))
-            self.verifica_se_eh_necessario_calcular_algo_nessa_nova_leitura_xablaus()
+            #self.verifica_se_eh_necessario_calcular_algo_nessa_nova_leitura_xablaus()
             self.tempo_lido = ""
             self.ql_sensor_enviando = None
+        """
 
     def verifica_se_eh_necessario_calcular_algo_nessa_nova_leitura_xablaus(self):
         """Verifica o novo valor lido e compara para saber se houve ou está
