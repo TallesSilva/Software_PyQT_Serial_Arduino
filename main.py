@@ -89,15 +89,23 @@ class ThreadLeitura(QThread):
 class ExampleApp(QMainWindow, base.Ui_MainWindow):
     def __init__(self, parent=None):
         super(ExampleApp, self).__init__(parent)
+        # TIMER
         self.meu_timer = QTimer()
+        # CONEXAO SERIAL
         self.port = None
         if self.port is None:
             self.port = ExampleApp.get_arduino_serial_port()
         self.baudrate = 115200
         self.conexao = serial.Serial(self.port, self.baudrate)
         print("conectado\n")
+        # CHAMADAS DE SETUP
         self.setupUi(self)
         self.setup_signals_connections()
+        # VARIAVEIS DE INICIALIZAÇÃO
+        self.sensor_A_B = 0
+        self.sensor_B_C = 0
+        self.sensor_C_D = 0
+        self.sensor_D_A = 0
         tempo_sensor = {
         'A' : [0],
         'B' : [0],
@@ -183,12 +191,14 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         """ Incrementa o tempo nos LCDs disponíveis na interface.
         """
         self.myThread.start()
+        self.valida_percurso()
         self.lcdNumber.display(int(tempo_sensor['contador_do_timer'][-1]))
-        self.lcdNumber_2.display(tempo_sensor['A'][-1])
-        self.lcdNumber_3.display(tempo_sensor['B'][-1])
-        self.lcdNumber_4.display(tempo_sensor['C'][-1])
-        self.lcdNumber_5.display(tempo_sensor['D'][-1])
-        self.lcdNumber_6.display(tempo_sensor['E'][-1])
+        self.lcdNumber_2.display(self.sensor_A_B)
+        self.lcdNumber_3.display(self.sensor_B_C)
+        self.lcdNumber_4.display(self.sensor_C_D)
+        self.lcdNumber_5.display(self.sensor_D_A)
+        self.lcdNumber_6.display(0)
+
 
     def valida_percurso(self):
         """Verifica o novo valor lido e compara para saber se houve ou está
@@ -217,116 +227,14 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         #  15   20   0   0
         #  15   20   25  40
         if tempo_sensor['A'][-1] > 0:
-            if tempo_sensor['B'][- 1] == 0 and tempo_sensor['C'][-1] == 0  and tempo_sensor['D'][-1] == 0:
-                """O robô passou no 1º checkpoint (A) está percorrendo o trecho AB."""
-                #O robô está na frente do caminho do sensor infravermelho em A
-                print("Tempo de saida do sensor A: %f" %(tempo_sensor['A'][-1]))
-                self.tempo_de_saida_do_sensor['A'] = stempo_sensor['A'][-1]
-                self.etapa_atual = etapas_da_pista[1] # "Percorrendo trecho AB."
-
-
-            elif self.tempo_sensor['B'][-1] >= self.tempo_de_saida_do_sensor['A']:
-                if self.tempo_sensor['C'][-1] == 0  and self.tempo_sensor['D'][-1] == 0:
-                    """O robô passou no 2º checkpoint (B) está percorrendo o trecho BC."""
-                    #O robô está na frente do caminho do sensor infravermelho em B
-                    print("Tempo de saida do sensor B: %f" %(self.tempo_sensor['B'][-1]))
-                    self.tempo_de_saida_do_sensor['B'] = self.tempo_sensor['B'][-1]
-                    self.tempo_A_B = self.tempo_de_saida_do_sensor['B'] - self.tempo_de_saida_do_sensor['A']
-                    self.etapa_atual = self.etapas_da_pista[2] # "Percorrendo trecho BC."
-
-                elif self.tempo_sensor['C'][-1] >= self.tempo_de_saida_do_sensor['B']:
-                    if self.tempo_sensor['D'][-1] == 0:
-                        """O robô passou no 3º checkpoint (C) está percorrendo o trecho CD."""
-                        #O robô está na frente do caminho do sensor infravermelho em C
-                        print("Tempo de saida do sensor C: %f" %(self.tempo_sensor['C'][-1]))
-                        self.tempo_de_saida_do_sensor['C'] = self.tempo_sensor['C'][-1]
-                        self.tempo_B_C = self.tempo_de_saida_do_sensor['C'] - self.tempo_de_saida_do_sensor['B']
-                        self.etapa_atual = self.etapas_da_pista[3] # "Percorrendo trecho CD."
-
-                    elif self.tempo_sensor['D'][-1] >= self.tempo_de_saida_do_sensor['C']:
-                        #  A    B    C   D
-                        #  0    0    0   0 (0,5s)
-                        #  0    0    0   0 (1,0s)
-                        #  15   20   0   0 (1,5s)
-                        #  15   20   25  0 (2,0s)
-                        #  50   20   25  40 (2,5s)
-                        # para evitar problema trocou o self.tempo_sensor['A'][-1] por  self.tempo_sensor['A'][-2]
-                        if self.tempo_sensor['A'][-2] == self.tempo_de_saida_do_sensor['A']:
-                            """O robô passou no 4º checkpoint (D) está percorrendo o trecho DA."""
-                            #O robô está na frente do caminho do sensor infravermelho em D
-                            print("Tempo de saida do sensor D: %f" %(self.tempo_sensor['D'][-1]))
-                            self.tempo_de_saida_do_sensor['D'] = self.tempo_sensor['D'][-1]
-                            self.tempo_C_D = self.tempo_de_saida_do_sensor['D'] - self.tempo_de_saida_do_sensor['C']
-                            self.etapa_atual = self.etapas_da_pista[4] # "Percorrendo trecho DA."
-                        # Se caso a pista tiver sensor E, implementar mais um if do sensor E
-                        elif self.tempo_sensor['A'][-1] >= self.tempo_de_saida_do_sensor['D']:
-                            """O robô passou no 5º checkpoint (A) está finalizando a corrida."""
-                            #O robô está na frente do caminho do sensor infravermelho em A
-                            print("Tempo de finalizacao: %f" %(self.tempo_sensor['A'][-1]))
-                            self.tempo_de_saida_do_sensor['Final'] = self.tempo_sensor['A'][-1]
-                            self.tempo_D_A = self.tempo_de_saida_do_sensor['Final'] - self.tempo_de_saida_do_sensor['D']
-                            self.etapa_atual = self.etapas_da_pista[5] # "Corrida finalizada."
-                            print("""ACABOU!!
-                            É TETRA!!
-                            É TETRA!!
-                            ACABOU!!""")
-                            #NOTE: Tem um potencial problema aqui...
-                            #NOTE: Esse 'if' detecta qnd o "bico" do carro obstrui o sensor
-                            #NOTE: Ele não espera a leitura se acomodar...
-                            #NOTE: Com isso carrinhos mais compridos tem vantagem
-                            #NOTE: Pois o tempo de inicio se dará ao carrinho passar a
-                            #NOTE: bunda pelo sensor na largada e o tempo de fim
-                            #NOTE: vai ser dado quando ele encostar o bico...
-                            #NOTE: Uma solução é finalizar a corrida com um botão e recalcular o tempo de chegada para ser o tempo da bunda tbm
-                            #NOTE:
-                            #NOTE: Outra solicação é detectar a passagem somente do bico do carrinho.
-                            #NOTE:      A segunda solução tem o problema de depender do tempo de comunicação RF (500ms)
-                            #NOTE:      Mas seria necessario alterar no código do RF  para q ele avise assim que ocorrer o primeiro toque e trave nesta leitura.
-                            #NOTE:      Ou seja ele leria 0,0,0,15,15,15,15 ao inves de ler 0,0,0,15,16,17,17,17,17....
-                            #NOTE: posso alterar a leitura, pra que ela aconteça quando o sinal mudar de 1 -> 0 e assim salvar o tempo só uma vez e envia só um valor
-                            #NOTE:      Faz isso, fica melhor.
-                            #NOTE:      E coloca uma comando que o arduino pode enviar pro sensor, pra desbloquear essa leitura.
-                            #NOTE:      COMANDO: INICIAR
-                            #NOTE:      LEITURAS: 0, 0, 0, 0, 0, 15, 15, 15, 15, 15.
-                            #NOTE:      COMANDO: DESBLOQUEAR SENSOR A
-                            #NOTE:      LEITURAS: 0,0 ,0 ,0 ,0, 15, 15, 15, 15, 15, 67, 67, 67 ,67
-                            #NOTE:      Entendeu a necessidade?
-                            #NOTE:      essa parte do desbloquear nao, se eu alterar a forma de leitura já consigo resolver isso, não ?
-                            #NOTE:      é pq o sensor A precisa ler 2 vezes
-                            #NOTE:      Atende minha ligação desgraça
-                            #NOTE:      Se ele não desbloquear a leitura, ele vai ficar travado na primeira vez.
-                            #NOTE: também podemos so deixar como esta e colocar no edital que vai ser desse jeito.
-                            #NOTE: O problema é se não colocar pode vir alguem falando dps que a detecção favorecia
-                            #NOTE:     os carrinhos mais compridos e que nao foi justo...
-                            #self.finalizar_corrida()
-                        else:
-                            print("""ERRO!!
-                            Opções:
-                            1. O tempo de passagem em A foi alterado antes do robô passar em D.
-                            2.
-                            Ocorreu uma segunda passagem pelo sensor A em um tempo menor do que a passagem pelo sensor D.
-                            Por favor verifique.""")
-                    else:
-                        print("""ERRO!!
-                        Opções:
-                        1. O tempo em D não valeu 0 durante a passagem por C.
-                        2. Ocorreu uma passagem pelo sensor D em um tempo menor do que a passagem pelo sensor C.
-                        Por favor verifique.""")
-                else:
-                    print("""ERRO!!
-                    Opções:
-                    1. O tempo em C ou D não valeu 0 durante a passagem por B.
-                    2. Ocorreu uma passagem pelo sensor C em um tempo menor do que a passagem pelo sensor B.
-                    Por favor verifique.""")
-            else:
-                print("""ERRO!!
-                Opções:
-                1. O tempo em B, C ou D não valeu 0 durante a passagem por A.
-                2. Ocorreu uma passagem pelo sensor B em um tempo menor do que a passagem pelo sensor A.
-                Por favor verifique.""")
-        else:
-            print("Ainda não ocorreu a passagem pelo sensor A... Tempo lido em A = 0")
-
+            if tempo_sensor['B'][-1]>tempo_sensor['A'][-1] and tempo_sensor['C'][-1] == 0 and tempo_sensor['D'][-1] == 0:
+                self.sensor_A_B = tempo_sensor['B'][-1] - tempo_sensor['A'][-1]
+            if tempo_sensor['A'][-1] < tempo_sensor['B'][-1] and tempo_sensor['C'][-1] > tempo_sensor['B'][-1] and tempo_sensor['D'][-1] == 0:
+                self.sensor_B_C = tempo_sensor['C'][-1] - tempo_sensor['B'][-1]
+            if tempo_sensor['A'][-1] < tempo_sensor['D'][-1] and tempo_sensor['B'][-1] < tempo_sensor['C'][-1] and tempo_sensor['D'][-1] > tempo_sensor['C'][-1]:
+                self.sensor_C_D = tempo_sensor['D'][-1] - tempo_sensor['C'][-1]
+            if tempo_sensor['A'][-1] > tempo_sensor['D'][-1] and tempo_sensor['B'][-1] < tempo_sensor['C'][-1] and tempo_sensor['A'][-1] > tempo_sensor['B'][-1]:
+                self.sensor_D_A = tempo_sensor['A'][-1] - tempo_sensor['D'][-1]
 
 def main():
     app = QApplication(sys.argv)
