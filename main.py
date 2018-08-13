@@ -51,39 +51,38 @@ class ThreadLeitura(QThread):
         #print(contador_do_timer)
 
     def Ler(self):
-        tempo_sensor['contador_do_timer'][-1] += 0.53 # variave que aparece no lcd (sempre somar pois é o tempo pra ler todo mundo)
-        sleep(0.1)
+        tempo_sensor['contador_do_timer'][-1] = tempo_sensor['contador_do_timer'][0] + 0.133 # variave que aparece no lcd (sempre somar pois é o tempo pra ler todo mundo )
         aux1 =self.porta_serial.inWaiting() #serve pra ver quantos bytes tem na fila
         if aux1 != None : #se tiver byte pra ler
             self.sensor = ord(self.porta_serial.read(1)) #Lê qual sensor é
             if self.sensor == 49: #se for sensor 1 ( 1 = 49 em ascii)
                 self.tempo_sensorA = self.porta_serial.read(1) # lê primeiro valor, High valor
                 self.tempo_sensorA = (ord(self.tempo_sensorA) * 256) + ord(self.porta_serial.read(1)) # lê segundo valor (low) e transforma para o numero real que foi enviado antes de ser convertido
-                tempo_sensor['A'][-1] = self.tempo_sensorA * 5; # calcula o tempo
+                tempo_sensor['A'][-1] = self.tempo_sensorA * 0.005; # calcula o tempo
                 print("sensorA")
                 print(tempo_sensor['A'][-1])
             if self.sensor == 50: # o ciclo se repete para outros sensores ( 2,3,4 e 5)
                 self.tempo_sensorB = self.porta_serial.read(1)
                 self.tempo_sensorB = (ord(self.tempo_sensorB) * 256) + ord(self.porta_serial.read(1))
-                tempo_sensor['B'][-1] = self.tempo_sensorB * 5; # calcula o tempo
+                tempo_sensor['B'][-1] = self.tempo_sensorB * 0.005; # calcula o tempo
                 print("sensorB")
                 print(tempo_sensor['B'][-1])
             if self.sensor == 51:
                 self.tempo_sensorC = self.porta_serial.read(1)
                 self.tempo_sensorC = (ord(self.tempo_sensorC) * 256) + ord(self.porta_serial.read(1))
-                tempo_sensor['C'][-1] = self.tempo_sensorC * 5; # calcula o tempo
+                tempo_sensor['C'][-1] = self.tempo_sensorC * 0.005; # calcula o tempo
                 print("sensorC")
                 print(tempo_sensor['C'][-1])
             if self.sensor == 52:
                 self.tempo_sensorD = self.porta_serial.read(1)
                 self.tempo_sensorD = (ord(self.tempo_sensorD) * 256) + ord(self.porta_serial.read(1))
-                tempo_sensor['D'][-1] = self.tempo_sensorD * 5; # calcula o tempo
+                tempo_sensor['D'][-1] = self.tempo_sensorD * 0.005; # calcula o tempo
                 print("sensorD")
                 print(tempo_sensor['D'][-1])
             if self.sensor == 53:
                 self.tempo_sensorE = self.porta_serial.read(1)
                 self.tempo_sensorE = (ord(self.tempo_sensorE) * 256) + ord(self.porta_serial.read(1))
-                tempo_sensor['E'][-1] = self.tempo_sensorE * 5; # calcula o tempo
+                tempo_sensor['E'][-1] = self.tempo_sensorE * 0.005; # calcula o tempo
                 print(tempo_sensor['E'][-1])
                 print("sensorE")
 
@@ -142,7 +141,7 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         self.conexao.write(b'I')
 
 
-        self.meu_timer.start(1)
+        self.meu_timer.start(0.01)
         self.loop_thread()
 
     def btn_desclicado(self):
@@ -184,13 +183,12 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         """ Incrementa o tempo nos LCDs disponíveis na interface.
         """
         self.myThread.start()
-        #self.Timer = tempo_sensor['contador_do_timer'][-1]
         self.lcdNumber.display(int(tempo_sensor['contador_do_timer'][-1]))
-        self.lineEdit_A.setText(self.tempo_A_B)
-        self.lineEdit_B.setText(self.sensor_B_C)
-        self.lineEdit_C.setText(self.sensor_C_D)
-        self.lineEdit_D.setText(self.sensor_D_A)
-        self.lineEdit_E.setText("sensor desabilitado")
+        self.lcdNumber_2.display(tempo_sensor['A'][-1])
+        self.lcdNumber_3.display(tempo_sensor['B'][-1])
+        self.lcdNumber_4.display(tempo_sensor['C'][-1])
+        self.lcdNumber_5.display(tempo_sensor['D'][-1])
+        self.lcdNumber_6.display(tempo_sensor['E'][-1])
 
     def valida_percurso(self):
         """Verifica o novo valor lido e compara para saber se houve ou está
@@ -225,6 +223,7 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
                 print("Tempo de saida do sensor A: %f" %(tempo_sensor['A'][-1]))
                 self.tempo_de_saida_do_sensor['A'] = stempo_sensor['A'][-1]
                 self.etapa_atual = etapas_da_pista[1] # "Percorrendo trecho AB."
+
 
             elif self.tempo_sensor['B'][-1] >= self.tempo_de_saida_do_sensor['A']:
                 if self.tempo_sensor['C'][-1] == 0  and self.tempo_sensor['D'][-1] == 0:
