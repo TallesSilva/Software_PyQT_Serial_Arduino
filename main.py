@@ -1,187 +1,112 @@
-'''
-UNIVERSIDADE FEDERAL DE UBERLÂNDIA
-PET Eng. Elétrica - PROGRAMA DE EDUCAÇÃO TUTORIAL
-autores: Ítalo G S Fernandes
-        github.com/italogsfernandes
-        Talles Silva Rodrigues
-        github.com/TallesSilva
-
-Este código esta disponpivel no repositório do PET Eng. Elética: github.com/pet-eletrica/tur
-Ele está diponivel para consulta e uso segundo a licensa MIT.
-
-Descrição: Interface para controle e visualização do sistema de detecção de
-passagem dos robôs seguidores de linha no Torneiro Universitário de Robôtica.
-
-Abaixo explicações sobre o seu funcionamento:
-'''
-# primeira opção de software : chamar função e contabilizar tempos no fim da Corrida ( timer do python rodando e não deixar informações ate o fim da corrda)
-# segunda opção : chamar e contabilizar a medida ( tempo quase real a medida que chega um valor )
-# esse tempo_sensor é um dicionario com 5 chaves sendo elas A, B, C, D e E
-# em cada chave do dicionario tem um vetor
-# Onde vai ter as leituras brutas...
-# por exemplo
-# Se o arduino enviar:
-# A10
-# B11
-# C11
-# D12
-# A10
-# B15
-# C14
-# D13
-# A11
-# B17
-# Os vetores vao ficar:
-'''
-self.tempo_sensor = {
-'A' : [10, 10, 11],
-'B' : [11, 15, 17],
-'C' : [11, 14],
-'D' : [12, 13],
-'E' : []
-}
-'''
-# Deu pra pegar a ideia?
-# Isso so vai acumular enquanto estiver numa partida e depois vc reseta pra proxima,
-# antes de resetar vc salvar num txt
-# Seu PC tem no minumo uns 2GB de mémoria ram, nsao sei se da pra perceber mas é mta memoria
-# cada variavel dessa devo ocupar no maximo uns 4 byte, vamo chutar 10
-# Se for por 5 minutos a corrida, considerando 10ms de intervalo
-# 5 sensores * 5 min * 60 s/min * 10 intervalos/s * 100 bytes = 1500 Kbytes
-# E quando apertar o botão de finalizar, vc já salva tudo num txt
-# E deixa preparado pra se alguem quiser falar que o software roubou
-# Você fala: pega esse txt e faz as contas na mão. Pode conferir.
-
-##### exemplo no final de um dado tempo:
-'''
-self.tempo_sensor = {
-'A' : [0, 0, 0 , 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-'B' : [0, 0, 0 , 0, 0, 0, 0, 0, 0, 13, 14, 15, 16, 16, 16, 16, 16, 16],
-'C' : [0, 0, 0 , 0, 0, 0, 0, 0, 0,  ],
-'D' : [0, 0, 0 , 0, 0, 0, 0, 0, 0, ],
-'E' : [0, 0, 0 , 0, 0, 0, 0, 0, 0, ]
-}
-'''
-
-# ------------------------------------------------------------------------------
-# Libraries
 import sys
 import serial
 import time
-import serial.tools.list_ports as serial_tools #list ade porta seriais
-# ------------------------------------------------------------------------------
-# PyQt5
+import threading
+import serial.tools.list_ports as serial_tools
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 import pista as base
-# ------------------------------------------------------------------------------
+from time import sleep
 
-# ------------------------------------------------------------------------------
+#---------------------------- VARIAVEIS GLOBAIS
+tempo_sensor = {
+'contador_do_timer' : [0],
+'A' : [0],
+'B' : [0],
+'C' : [0],
+'D' : [0],
+'E' : [0]
+}
+etapas_da_pista = [
+"Aguardando passagem por A.",
+"Percorrendo trecho AB.",
+"Percorrendo trecho BC.",
+"Percorrendo trecho CD.",
+"Percorrendo trecho DA.",
+"Corrida finalizada."
+]
+
+
+# referencia: https://nikolak.com/pyqt-threading-tutorial/
+class ThreadLeitura(QThread):
+    def __init__(self, conecao_com_a_porta):
+        QThread.__init__(self)
+        self.porta_serial = conecao_com_a_porta
+        self.sensor = 0
+        self.tempo_sensorA = 0
+        self.tempo_sensorB = 0
+        self.tempo_sensorC = 0
+        self.tempo_sensorD = 0
+        self.tempo_sensorE = 0
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        self.Ler()
+        #print(aux1)
+        #print("sensor")
+        #print(self.sensor)
+        #print("cronometro")
+        #print(contador_do_timer)
+
+    def Ler(self):
+        tempo_sensor['contador_do_timer'][-1] += 0.53 # variave que aparece no lcd (sempre somar pois é o tempo pra ler todo mundo)
+        sleep(0.1)
+        aux1 =self.porta_serial.inWaiting() #serve pra ver quantos bytes tem na fila
+        if aux1 != None : #se tiver byte pra ler
+            self.sensor = ord(self.porta_serial.read(1)) #Lê qual sensor é
+            if self.sensor == 49: #se for sensor 1 ( 1 = 49 em ascii)
+                self.tempo_sensorA = self.porta_serial.read(1) # lê primeiro valor, High valor
+                self.tempo_sensorA = (ord(self.tempo_sensorA) * 256) + ord(self.porta_serial.read(1)) # lê segundo valor (low) e transforma para o numero real que foi enviado antes de ser convertido
+                tempo_sensor['A'][-1] = self.tempo_sensorA * 5; # calcula o tempo
+                print("sensorA")
+                print(tempo_sensor['A'][-1])
+            if self.sensor == 50: # o ciclo se repete para outros sensores ( 2,3,4 e 5)
+                self.tempo_sensorB = self.porta_serial.read(1)
+                self.tempo_sensorB = (ord(self.tempo_sensorB) * 256) + ord(self.porta_serial.read(1))
+                tempo_sensor['B'][-1] = self.tempo_sensorB * 5; # calcula o tempo
+                print("sensorB")
+                print(tempo_sensor['B'][-1])
+            if self.sensor == 51:
+                self.tempo_sensorC = self.porta_serial.read(1)
+                self.tempo_sensorC = (ord(self.tempo_sensorC) * 256) + ord(self.porta_serial.read(1))
+                tempo_sensor['C'][-1] = self.tempo_sensorC * 5; # calcula o tempo
+                print("sensorC")
+                print(tempo_sensor['C'][-1])
+            if self.sensor == 52:
+                self.tempo_sensorD = self.porta_serial.read(1)
+                self.tempo_sensorD = (ord(self.tempo_sensorD) * 256) + ord(self.porta_serial.read(1))
+                tempo_sensor['D'][-1] = self.tempo_sensorD * 5; # calcula o tempo
+                print("sensorD")
+                print(tempo_sensor['D'][-1])
+            if self.sensor == 53:
+                self.tempo_sensorE = self.porta_serial.read(1)
+                self.tempo_sensorE = (ord(self.tempo_sensorE) * 256) + ord(self.porta_serial.read(1))
+                tempo_sensor['E'][-1] = self.tempo_sensorE * 5; # calcula o tempo
+                print(tempo_sensor['E'][-1])
+                print("sensorE")
+
 class ExampleApp(QMainWindow, base.Ui_MainWindow):
     def __init__(self, parent=None):
         super(ExampleApp, self).__init__(parent)
-        # iniciando variaveis (propriedades)
-        ##### Timers: #####
         self.meu_timer = QTimer()
-        self.contador_do_timer = 0
-        self.t = 0
-        ##### Porta Serial #####
-        self.conexao = serial.Serial() # Declarando um atribulo chamado conexao com uma porta serial vazia
-        self.port_name = None
-        if self.port_name is None:
-            self.port_name = ExampleApp.get_arduino_serial_port()
+        self.port = None
+        if self.port is None:
+            self.port = ExampleApp.get_arduino_serial_port()
         self.baudrate = 115200
-        ##### Leituras dos Sensores #####
-        # Dicionario que armazenará os vetores de tempo de passagem em cada checkpoint
-        self.tempo_sensor = {'A' : [0], 'B' : [0], 'C' : [0], 'D' : [0], 'E' : [0]}
-        # indica qual sensor atualmente esta enviando dados para a interface
-        self.ql_sensor_enviando = None
-        # indica o tempo lido pelo sensor cidado a cima
-        self.tempo_lido = ""
-        ##### Valores referêntes aos tempos de passagem na pista do tur 2018 #####
-        self.tempo_de_saida_do_sensor = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'Final': 0}
-        self.tempo_A_B = 0
-        self.tempo_B_C = 0
-        self.tempo_C_D = 0
-        self.tempo_D_A = 0
-        self.etapas_da_pista = [
-        "Aguardando passagem por A.",
-        "Percorrendo trecho AB.",
-        "Percorrendo trecho BC.",
-        "Percorrendo trecho CD.",
-        "Percorrendo trecho DA.",
-        "Corrida finalizada."
-        ]
-        self.etapa_atual = self.etapas_da_pista[0]
-        ##### Inicialização do PyQt #####
-        #configuracoes do pyqt
+        self.conexao = serial.Serial(self.port, self.baudrate)
+        print("conectado\n")
         self.setupUi(self)
         self.setup_signals_connections()
-        ##### configuracao adicional #####
+        tempo_sensor = {
+        'A' : [0],
+        'B' : [0],
+        'C' : [0],
+        'D' : [0],
+        'E' : [0]
+        }
         print("Codigo comecou a rodar")
-
-    def setup_signals_connections(self):
-        """Faz a conexão entre os elementos da interface e os metódos presentes
-        nesta classe.
-        """
-        self.Iniciar.clicked.connect(self.btn_clicado)
-        self.meu_timer.timeout.connect(self.timer_de_leitura)
-        self.Finalizar.clicked.connect(self.btn_desclicado)
-
-    def btn_clicado(self):
-        print("começou a contar")
-        self.resetar_variaveis_de_leitura()
-        self.conectar()
-        print("bora sair da jaula")
-        self.conexao.write(b'I')
-        print("birl")
-        self.meu_timer.start(1) #mudar pra um tempo bem menor
-
-    def btn_desclicado(self):
-        print("Parou de Contar")
-        self.meu_timer.stop()
-        self.conexao.close()
-        #implementar criar txt
-        self.resetar_variaveis_de_leitura() # posso ?
-
-    def resetar_variaveis_de_leitura(self):
-        # Dicionario que armazenará os vetores de tempo de passagem em cada checkpoint
-        self.tempo_sensor = {'A' : [0], 'B' : [0], 'C' : [0], 'D' : [0], 'E' : [0]}
-        # indica qual sensor atualmente esta enviando dados para a interface
-        self.ql_sensor_enviando = None
-        # indica o tempo lido pelo sensor cidado a cima
-        self.tempo_lido = ""
-
-    def timer_de_leitura(self):
-        self.receber()
-
-    def tarefa_do_timer(self):
-         self.enviar()
-         # Como os dados chegam:
-         # A11\nB23423\n
-
-    def timer_do_lcd(self):
-        """ Incrementa o tempo nos LCDs disponíveis na interface.
-        """
-        self.contador_do_timer = self.contador_do_timer + 1 # variave que aparece no lcd
-        self.t = self.t + 1 # variavel auxiliar para fazer funcionar o if ali embaixo
-        if (self.t > 10):
-            #self.receber()
-            self.lineEdit_A.setText(self.tempo_A_B)
-            self.lineEdit_B.setText(self.sensor_B_C)
-            self.lineEdit_C.setText(self.sensor_C_D)
-            self.lineEdit_D.setText(self.sensor_D_A)
-            self.lineEdit_E.setText("sensor desabilitado")
-            self.lcdNumber.display(self.contador_do_timer)
-
-    def conectar(self):
-        """Caso não esteja conectado, abre uma nova conexão.
-        """
-        print("esse é o certo, tira o parenteses do is_open")
-        if not self.conexao.is_open:
-            self.conexao = serial.Serial(self.port_name, self.baudrate, timeout=0.5)
-            self.conexao.flushInput()
-            self.conexao.flushOutput()
 
     @staticmethod
     def get_arduino_serial_port():
@@ -204,61 +129,70 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
                 return serial_port_found.device
         return ""
 
-    def receber(self):
-        """Chama um loop a cada novo pacote de dados disponível na porta serial.
-        """
-        #Se for ativar os prints muda o tempo do timer pra um tempo maior
-        #So assim será possivel visualizar a mensagem...
-        #print("timer de receber")
-        #print(self.conexao.isOpen())
-        if self.conexao.isOpen():
-            #print("porta serial esta aberta com %d caracteres" % (self.conexao.inWaiting()) )
-            if self.conexao.inWaiting() >= 3: # No minimo 3
-                for n in range(self.conexao.inWaiting()):
-                    # sempre que tiver no minimo 1 byte pra ler é chamado o loop de leitura
-                    self.loop_de_leitura()
-                    #valor_lido = self.conexao.read()
-                    #valor_lido = str(chr(ord(valor_lido))) #converte o valor lido
-                    #print(valor_lido, end='') #para teste
+    def setup_signals_connections(self):
+        self.Iniciar.clicked.connect(self.btn_clicado)
+        self.Finalizar.clicked.connect(self.btn_desclicado)
+        self.meu_timer.timeout.connect(self.loop_thread)
+        self.myThread = ThreadLeitura(self.conexao)
 
-    def loop_de_leitura(self):
-        """Este método é chamado sempre que existir no mínimo 1 valor para ser lido na porta serial
-        O pacote está na seguinte forma: [Sensor][Multiplicador como string de um inteiro][Quebra de Linha]
-        Exemplo: A11\n
-                Sensor: 'A'
-                Multiplicador: '11'
-                Quebra de linha: '\n'
-        Para a leitura primeiro se verifica se já é conhecido o sensor, caso não seja ele é lido.
-        Após a leitura do sensor cada novo caracter é concatenado em uma string,
-        esta string conterá o multiplicador que indica o tempo.
-        Caso uma leitura seja igual a '\n' ou '\t' (quebra de linha) é reconhecido
-        o final de um pacote.
-        O tempo é convertido para inteiro e salvo em um vetor para aquele sensor.
-        E a string de tempo e variavel q indica ql sensor são resetadas para
-        possibilitar a leitura de um novo pacote.
-        """
-        valor_lido = self.conexao.read()
-        valor_lido = str(chr(ord(valor_lido))) #converte o valor lido
-        print(valor_lido, end='') #para teste
-        # Os pacotes podem começar com A, B, C, D e E
-        # descomentar o bloco a baixo quando testar a parte de cima
-        """
-         if self.ql_sensor_enviando is not None:
-            print(valor_lido)
-            if valor_lido == 'A' or valor_lido == 'B' or valor_lido == 'C' or valor_lido == 'D' or valor_lido == 'E':
-                self.ql_sensor_enviando = valor_lido
-        elif valor_lido != '\n' and valor_lido != '\t': # se não for o \n então vai acumulando numa string
-            self.tempo_lido = self.tempo_lido + valor_lido
-            print(self.tempo_lido)
-        else: # Se chegou o \n, converte a string pra inteiro e salva num dict
-            print("mensagem completa: " + self.ql_sensor_enviando + " enviou "+ self.tempo_lido)
-            self.tempo_sensor[self.ql_sensor_enviando].append(int(self.tempo_lido))
-            #self.verifica_se_eh_necessario_calcular_algo_nessa_nova_leitura_xablaus()
-            self.tempo_lido = ""
-            self.ql_sensor_enviando = None
-        """
+    def btn_clicado(self):
+        self.reset()
+        print("COMEÇOU")
+        self.conectar()
+        self.conexao.write(b'I')
 
-    def verifica_se_eh_necessario_calcular_algo_nessa_nova_leitura_xablaus(self):
+
+        self.meu_timer.start(1)
+        self.loop_thread()
+
+    def btn_desclicado(self):
+        self.myThread.close()
+        self.conexao.close()
+        self.meu_timer.stop()
+        #self.salvar_arquivo_txt()
+        self.reset()
+
+
+    def reset(self):
+        tempo_sensor = {
+        'contador_do_timer' : [0],
+        'A' : [0],
+        'B' : [0],
+        'C' : [0],
+        'D' : [0],
+        'E' : [0]
+        }
+        etapas_da_pista = [
+        "Aguardando passagem por A.",
+        "Percorrendo trecho AB.",
+        "Percorrendo trecho BC.",
+        "Percorrendo trecho CD.",
+        "Percorrendo trecho DA.",
+        "Corrida finalizada."
+        ]
+
+    def conectar(self):
+        """Caso não esteja conectado, abre uma nova conexão.
+        """
+        print("esse é o certo, tira o parenteses do is_open")
+        if not self.conexao.is_open:
+            self.conexao = serial.Serial(self.port_name, self.baudrate, timeout=0.5)
+            self.conexao.flushInput()
+            self.conexao.flushOutput()
+
+    def loop_thread(self):
+        """ Incrementa o tempo nos LCDs disponíveis na interface.
+        """
+        self.myThread.start()
+        #self.Timer = tempo_sensor['contador_do_timer'][-1]
+        self.lcdNumber.display(int(tempo_sensor['contador_do_timer'][-1]))
+        self.lineEdit_A.setText(self.tempo_A_B)
+        self.lineEdit_B.setText(self.sensor_B_C)
+        self.lineEdit_C.setText(self.sensor_C_D)
+        self.lineEdit_D.setText(self.sensor_D_A)
+        self.lineEdit_E.setText("sensor desabilitado")
+
+    def valida_percurso(self):
         """Verifica o novo valor lido e compara para saber se houve ou está
         ocorrendo a passagem por um checkpoint.
         Defeitos Conhecidos: O valor oscila enquanto o robô esta passando ( a leitura é feita em 0,5s, não da pra perceber)
@@ -284,13 +218,13 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         #  0    0    0   0
         #  15   20   0   0
         #  15   20   25  40
-        if self.tempo_sensor['A'][-1] > 0:
-            if self.tempo_sensor['B'][- 1] == 0 and self.tempo_sensor['C'][-1] == 0  and self.tempo_sensor['D'][-1] == 0:
+        if tempo_sensor['A'][-1] > 0:
+            if tempo_sensor['B'][- 1] == 0 and tempo_sensor['C'][-1] == 0  and tempo_sensor['D'][-1] == 0:
                 """O robô passou no 1º checkpoint (A) está percorrendo o trecho AB."""
                 #O robô está na frente do caminho do sensor infravermelho em A
-                print("Tempo de saida do sensor A: %f" %(self.tempo_sensor['A'][-1]))
-                self.tempo_de_saida_do_sensor['A'] = self.tempo_sensor['A'][-1]
-                self.etapa_atual = self.etapas_da_pista[1] # "Percorrendo trecho AB."
+                print("Tempo de saida do sensor A: %f" %(tempo_sensor['A'][-1]))
+                self.tempo_de_saida_do_sensor['A'] = stempo_sensor['A'][-1]
+                self.etapa_atual = etapas_da_pista[1] # "Percorrendo trecho AB."
 
             elif self.tempo_sensor['B'][-1] >= self.tempo_de_saida_do_sensor['A']:
                 if self.tempo_sensor['C'][-1] == 0  and self.tempo_sensor['D'][-1] == 0:
@@ -394,12 +328,6 @@ class ExampleApp(QMainWindow, base.Ui_MainWindow):
         else:
             print("Ainda não ocorreu a passagem pelo sensor A... Tempo lido em A = 0")
 
-
-    def finalizar_corrida(self):
-        print("A Corrida terminou, mostrar na interface fazer altas coisas, parar o timer...")
-
-    def enviar(self):
-        self.conexao.write("I")
 
 def main():
     app = QApplication(sys.argv)
