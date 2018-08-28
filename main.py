@@ -51,7 +51,7 @@ class ThreadLeitura(QThread):
 
     def run(self):
         sleep(1)
-        tempo_sensor['contador_do_timer'][-1] = tempo_sensor['contador_do_timer'][0] + 1.1 # variave que aparece no lcd (sempre somar pois é o tempo pra ler todo mundo )''
+        tempo_sensor['contador_do_timer'][-1] = tempo_sensor['contador_do_timer'][0] + 1.01 # variave que aparece no lcd (sempre somar pois é o tempo pra ler todo mundo )''
         self.porta.flushOutput()
         self.porta.flushInput()
 
